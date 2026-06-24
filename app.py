@@ -1,9 +1,8 @@
 """
-Anime Recommendation System 
+Anime Recommendation System — Streamlit App
+Applied Data Science, ML & AI | E&ICT Academy, IIT Guwahati
 """
 
-import os
-import base64
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -26,126 +25,98 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-bg_css = """
-    background-image:
-        linear-gradient(rgba(5,13,26,0.87), rgba(5,13,26,0.87)),
-        url("https://images4.alphacoders.com/134/thumb-1920-1340305.jpg");
-    background-size: cover;
-    background-position: center top;
-    background-attachment: fixed;
-"""
-# ── CSS ────────────────────────────────────────────────────────────────────────
-st.markdown(f"""
+# ── CSS + Naruto Background via URL ───────────────────────────────────────────
+st.markdown("""
 <style>
-    [data-testid="stAppViewContainer"] {{
-        {bg_css}
+    [data-testid="stAppViewContainer"] {
+        background-image:
+            linear-gradient(rgba(5,13,26,0.87), rgba(5,13,26,0.87)),
+            url("https://images4.alphacoders.com/134/thumb-1920-1340305.jpg");
+        background-size: cover;
+        background-position: center top;
         background-attachment: fixed;
-    }}
-    [data-testid="stAppViewContainer"]::before {{
+    }
+    [data-testid="stAppViewContainer"]::before {
         content: "";
         position: fixed; top: 0; left: 0; right: 0; bottom: 0;
         background-image: radial-gradient(circle, rgba(100,160,255,0.05) 1px, transparent 1px);
         background-size: 30px 30px;
         pointer-events: none; z-index: 0;
-    }}
-    [data-testid="stHeader"]         {{ background: transparent !important; }}
-    [data-testid="collapsedControl"] {{ display: none; }}
-    .block-container {{
+    }
+    [data-testid="stHeader"]         { background: transparent !important; }
+    [data-testid="collapsedControl"] { display: none; }
+    [data-testid="stDataFrame"]      { overflow-x: auto !important; }
+    .block-container {
         padding: 0.5rem 1.5rem 3rem 1.5rem !important;
-        max-width: 100% !important;
-        position: relative; z-index: 1;
-    }}
-    .sec {{
-        background: rgba(80,10,10,0.45);
-        border-left: 4px solid #FF6B6B;
-        padding: 0.45rem 0.9rem; border-radius: 5px;
-        font-weight: bold; color: #FFB3B3;
-        margin: 1rem 0 0.6rem 0;
-        font-size: clamp(0.8rem,2.5vw,0.95rem);
-        backdrop-filter: blur(6px);
-    }}
-    .box-info {{
-        background: rgba(255,107,107,0.08);
-        border-left: 4px solid #FF6B6B;
+        max-width: 100% !important; position: relative; z-index: 1;
+    }
+    .sec {
+        background: rgba(80,10,10,0.5); border-left: 4px solid #FF6B6B;
+        padding: 0.45rem 0.9rem; border-radius: 5px; font-weight: bold;
+        color: #FFB3B3; margin: 1rem 0 0.6rem 0;
+        font-size: clamp(0.8rem,2.5vw,0.95rem); backdrop-filter: blur(6px);
+    }
+    .box-info {
+        background: rgba(255,107,107,0.08); border-left: 4px solid #FF6B6B;
         padding: 0.7rem 1rem; border-radius: 6px;
         color: #FFB3B3; margin: 0.5rem 0;
         font-size: clamp(0.75rem,2.2vw,0.88rem);
-    }}
-    .box-green {{
-        background: rgba(76,175,80,0.1);
-        border-left: 4px solid #4CAF50;
+    }
+    .box-green {
+        background: rgba(76,175,80,0.1); border-left: 4px solid #4CAF50;
         padding: 0.7rem 1rem; border-radius: 6px;
         color: #A5D6A7; margin: 0.5rem 0;
         font-size: clamp(0.75rem,2.2vw,0.88rem);
-    }}
-    .anime-card {{
-        background: linear-gradient(135deg, rgba(20,5,40,0.85) 0%, rgba(80,10,10,0.6) 100%);
-        border: 1px solid rgba(255,100,100,0.3);
-        border-radius: 12px; padding: 1.2rem; margin: 0.8rem 0;
-        box-shadow: 0 4px 24px rgba(0,0,0,0.5);
-        backdrop-filter: blur(8px);
-    }}
-    [data-testid="stMetric"] {{
+    }
+    .anime-card {
+        background: linear-gradient(135deg, rgba(20,5,40,0.85) 0%, rgba(80,10,10,0.65) 100%);
+        border: 1px solid rgba(255,100,100,0.3); border-radius: 12px;
+        padding: 1.2rem; margin: 0.8rem 0;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.5); backdrop-filter: blur(8px);
+    }
+    [data-testid="stMetric"] {
         background: rgba(255,255,255,0.05);
         border: 1px solid rgba(255,100,100,0.2);
-        border-radius: 10px; padding: 0.6rem 0.8rem;
-        backdrop-filter: blur(4px);
-    }}
-    [data-testid="stMetricLabel"] {{ color: #FFB3B3 !important; }}
-    [data-testid="stMetricValue"] {{ color: #ffffff  !important; }}
-    .stTabs [data-baseweb="tab-list"] {{
+        border-radius: 10px; padding: 0.6rem 0.8rem; backdrop-filter: blur(4px);
+    }
+    [data-testid="stMetricLabel"] { color: #FFB3B3 !important; }
+    [data-testid="stMetricValue"] { color: #ffffff  !important; }
+    .stTabs [data-baseweb="tab-list"] {
         gap: 4px; overflow-x: auto; flex-wrap: nowrap;
-        background: rgba(255,255,255,0.03);
-        border-radius: 8px; padding: 4px;
-    }}
-    .stTabs [data-baseweb="tab"] {{
-        background: rgba(80,10,10,0.45);
-        border-radius: 6px; padding: 8px 20px;
-        font-weight: 600; color: #FFB3B3;
-        white-space: nowrap;
-        border: 1px solid rgba(255,100,100,0.2);
-        backdrop-filter: blur(4px);
-    }}
-    .stTabs [aria-selected="true"] {{
+        background: rgba(255,255,255,0.03); border-radius: 8px; padding: 4px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        background: rgba(80,10,10,0.5); border-radius: 6px; padding: 8px 20px;
+        font-weight: 600; color: #FFB3B3; white-space: nowrap;
+        border: 1px solid rgba(255,100,100,0.2); backdrop-filter: blur(4px);
+    }
+    .stTabs [aria-selected="true"] {
         background: rgba(160,30,30,0.85) !important;
         color: white !important;
         border-color: rgba(255,100,100,0.5) !important;
-    }}
-    [data-testid="stExpander"] {{
+    }
+    [data-testid="stExpander"] {
         background: rgba(255,255,255,0.04) !important;
         border: 1px solid rgba(255,100,100,0.2) !important;
-        border-radius: 10px !important;
-        backdrop-filter: blur(4px) !important;
-    }}
-    [data-testid="stDataFrame"] {{ overflow-x: auto !important; }}
-    label {{ color: #FFB3B3 !important; }}
-    [data-testid="stButton"] > button {{
+        border-radius: 10px !important; backdrop-filter: blur(4px) !important;
+    }
+    label { color: #FFB3B3 !important; }
+    [data-testid="stButton"] > button {
         background: linear-gradient(135deg, #6B1A1A 0%, #9B2525 100%) !important;
-        color: white !important;
-        border: 1px solid rgba(255,100,100,0.4) !important;
-        border-radius: 8px !important;
-        font-weight: 600 !important;
-        transition: all 0.2s ease !important;
-    }}
-    [data-testid="stButton"] > button:hover {{
+        color: white !important; border: 1px solid rgba(255,100,100,0.4) !important;
+        border-radius: 8px !important; font-weight: 600 !important;
+    }
+    [data-testid="stButton"] > button:hover {
         box-shadow: 0 4px 20px rgba(255,80,80,0.35) !important;
-        transform: translateY(-1px) !important;
-    }}
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Banner Image ───────────────────────────────────────────────────────────────
-if os.path.exists("banner.png"):
+# ── Banner ─────────────────────────────────────────────────────────────────────
+try:
     st.image("banner.png", use_container_width=True)
-
-# ── Constants ──────────────────────────────────────────────────────────────────
-KEYWORD_COLS = [
-    'basketball','football','soccer','softball','volleyball','swimming',
-    'cheerleading','baseball','tennis','sports','cute','sex','sexy','hot',
-    'kissed','dance','band','marching','music','rock','god','church','jesus',
-    'bible','hair','dress','blonde','mall','shopping','clothes','hollister',
-    'abercrombie','die','death','drunk','drugs'
-]
+except Exception:
+    pass
 
 # ── Plot Style ─────────────────────────────────────────────────────────────────
 plt.rcParams.update({
@@ -272,7 +243,6 @@ with tab1:
 with tab2:
     st.markdown('<div class="sec">🎌 Find Similar Anime</div>', unsafe_allow_html=True)
 
-    # ── Controls ──────────────────────────────────────────────────────────────
     c1, c2 = st.columns([3, 1])
     with c1:
         all_anime = sorted(anm_cb['name'].dropna().unique().tolist())
@@ -283,7 +253,6 @@ with tab2:
         n_recs = st.selectbox("📋 Recommendations",
                                options=[5, 10, 15, 20], index=1)
 
-    # ── Selected anime card ───────────────────────────────────────────────────
     if selected:
         sel = anm_cb[anm_cb['name'] == selected].iloc[0]
         eps = int(sel['episodes']) if not pd.isna(sel['episodes']) else 'N/A'
@@ -305,7 +274,6 @@ with tab2:
             </p>
         </div>""", unsafe_allow_html=True)
 
-        # ── Recommend Button ──────────────────────────────────────────────────
         if st.button("🎌 Get Recommendations", use_container_width=True):
             recs = recommend(selected, n=n_recs)
 
@@ -316,54 +284,44 @@ with tab2:
 
                 st.dataframe(recs, use_container_width=True)
 
-                # Charts
                 c1, c2 = st.columns(2)
                 with c1:
                     fig, ax = plt.subplots(figsize=(7, 5))
                     ax.barh(recs['name'], recs['similarity'],
                             color=sns.color_palette('YlOrRd', n_recs)[::-1],
                             edgecolor='#0a0d14')
-                    ax.set_title('Cosine Similarity Score',
-                                 fontweight='bold', fontsize=10)
-                    ax.set_xlabel('Similarity')
-                    ax.invert_yaxis()
+                    ax.set_title('Cosine Similarity Score', fontweight='bold', fontsize=10)
+                    ax.set_xlabel('Similarity'); ax.invert_yaxis()
                     ax.grid(True, alpha=0.2, axis='x')
                     for patch, val in zip(ax.patches, recs['similarity']):
-                        ax.text(patch.get_width() + 0.003,
-                                patch.get_y() + patch.get_height()/2,
-                                f'{val:.4f}', va='center',
-                                fontsize=8, color='#FFB3B3')
+                        ax.text(patch.get_width()+0.003,
+                                patch.get_y()+patch.get_height()/2,
+                                f'{val:.4f}', va='center', fontsize=8, color='#FFB3B3')
                     plt.tight_layout()
-                    st.pyplot(fig, use_container_width=True)
-                    plt.close()
+                    st.pyplot(fig, use_container_width=True); plt.close()
 
                 with c2:
                     fig, ax = plt.subplots(figsize=(7, 5))
                     ax.barh(recs['name'], recs['avg_rating'],
                             color=sns.color_palette('Blues_r', n_recs),
                             edgecolor='#0a0d14')
-                    ax.set_title('Average Rating',
-                                 fontweight='bold', fontsize=10)
-                    ax.set_xlabel('Rating')
-                    ax.invert_yaxis()
+                    ax.set_title('Average Rating', fontweight='bold', fontsize=10)
+                    ax.set_xlabel('Rating'); ax.invert_yaxis()
                     ax.grid(True, alpha=0.2, axis='x')
                     for patch, val in zip(ax.patches, recs['avg_rating']):
-                        ax.text(patch.get_width() + 0.05,
-                                patch.get_y() + patch.get_height()/2,
-                                f'{val:.2f}', va='center',
-                                fontsize=8, color='#BDD7EE')
+                        ax.text(patch.get_width()+0.05,
+                                patch.get_y()+patch.get_height()/2,
+                                f'{val:.2f}', va='center', fontsize=8, color='#BDD7EE')
                     plt.tight_layout()
-                    st.pyplot(fig, use_container_width=True)
-                    plt.close()
+                    st.pyplot(fig, use_container_width=True); plt.close()
 
-                # Genre breakdown
                 st.markdown(
                     '<div class="sec">🎭 Genre Distribution in Recommendations</div>',
                     unsafe_allow_html=True)
                 rec_genres   = recs['genre'].dropna().str.split(',').explode().str.strip()
                 genre_counts = Counter(rec_genres)
                 gdf = pd.DataFrame(genre_counts.items(),
-                                   columns=['Genre', 'Count']
+                                   columns=['Genre','Count']
                                    ).sort_values('Count', ascending=False)
                 fig, ax = plt.subplots(figsize=(12, 4))
                 ax.bar(gdf['Genre'], gdf['Count'],
@@ -371,13 +329,11 @@ with tab2:
                        edgecolor='#0a0d14')
                 ax.set_title(f'Genres in Recommendations for "{selected}"',
                              fontweight='bold', fontsize=10)
-                ax.set_xlabel('Genre')
-                ax.set_ylabel('Count')
+                ax.set_xlabel('Genre'); ax.set_ylabel('Count')
                 ax.tick_params(axis='x', rotation=45)
                 ax.grid(True, alpha=0.2, axis='y')
                 plt.tight_layout()
-                st.pyplot(fig, use_container_width=True)
-                plt.close()
+                st.pyplot(fig, use_container_width=True); plt.close()
 
                 st.markdown(f"""
                 <div class="box-green">
@@ -387,16 +343,13 @@ with tab2:
                 Rating / Members / Episodes (MinMax ×1)
                 </div>""", unsafe_allow_html=True)
 
-    # ── Quick Try ─────────────────────────────────────────────────────────────
     st.markdown('<div class="sec">⚡ Quick Try — Popular Anime</div>',
                 unsafe_allow_html=True)
     st.caption("Click any button below to instantly see recommendations")
 
-    quick_list = [
-        'Naruto', 'Death Note', 'One Piece',
-        'Fullmetal Alchemist: Brotherhood',
-        'Attack on Titan', 'Dragon Ball Z'
-    ]
+    quick_list = ['Naruto','Death Note','One Piece',
+                  'Fullmetal Alchemist: Brotherhood',
+                  'Attack on Titan','Dragon Ball Z']
     cols = st.columns(3)
     for i, name in enumerate(quick_list):
         with cols[i % 3]:
@@ -405,7 +358,5 @@ with tab2:
                 if recs is not None:
                     st.markdown(f"**Top 10 for {name}:**")
                     st.dataframe(
-                        recs[['name', 'genre', 'type',
-                              'avg_rating', 'similarity']],
-                        use_container_width=True
-                    )
+                        recs[['name','genre','type','avg_rating','similarity']],
+                        use_container_width=True)
