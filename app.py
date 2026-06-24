@@ -14,7 +14,7 @@ warnings.filterwarnings("ignore")
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
-from scipy.sparse import hstack
+from scipy.sparse import hstack, csr_matrix
 from collections import Counter
 
 # ── Page Config ────────────────────────────────────────────────────────────────
@@ -39,13 +39,13 @@ st.markdown("""
     [data-testid="stAppViewContainer"]::before {
         content: "";
         position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-        background-image: radial-gradient(circle, rgba(100,160,255,0.05) 1px, transparent 1px);
+        background-image: radial-gradient(circle,
+            rgba(100,160,255,0.05) 1px, transparent 1px);
         background-size: 30px 30px;
         pointer-events: none; z-index: 0;
     }
     [data-testid="stHeader"]         { background: transparent !important; }
     [data-testid="collapsedControl"] { display: none; }
-    [data-testid="stDataFrame"]      { overflow-x: auto !important; }
     .block-container {
         padding: 0.5rem 1.5rem 3rem 1.5rem !important;
         max-width: 100% !important; position: relative; z-index: 1;
@@ -54,22 +54,21 @@ st.markdown("""
         background: rgba(80,10,10,0.5); border-left: 4px solid #FF6B6B;
         padding: 0.45rem 0.9rem; border-radius: 5px; font-weight: bold;
         color: #FFB3B3; margin: 1rem 0 0.6rem 0;
-        font-size: clamp(0.8rem,2.5vw,0.95rem); backdrop-filter: blur(6px);
+        font-size: clamp(0.8rem, 2.5vw, 0.95rem); backdrop-filter: blur(6px);
     }
     .box-info {
         background: rgba(255,107,107,0.08); border-left: 4px solid #FF6B6B;
         padding: 0.7rem 1rem; border-radius: 6px;
         color: #FFB3B3; margin: 0.5rem 0;
-        font-size: clamp(0.75rem,2.2vw,0.88rem);
     }
     .box-green {
         background: rgba(76,175,80,0.1); border-left: 4px solid #4CAF50;
         padding: 0.7rem 1rem; border-radius: 6px;
         color: #A5D6A7; margin: 0.5rem 0;
-        font-size: clamp(0.75rem,2.2vw,0.88rem);
     }
     .anime-card {
-        background: linear-gradient(135deg, rgba(20,5,40,0.85) 0%, rgba(80,10,10,0.65) 100%);
+        background: linear-gradient(135deg,
+            rgba(20,5,40,0.85) 0%, rgba(80,10,10,0.65) 100%);
         border: 1px solid rgba(255,100,100,0.3); border-radius: 12px;
         padding: 1.2rem; margin: 0.8rem 0;
         box-shadow: 0 4px 24px rgba(0,0,0,0.5); backdrop-filter: blur(8px);
@@ -95,19 +94,12 @@ st.markdown("""
         color: white !important;
         border-color: rgba(255,100,100,0.5) !important;
     }
-    [data-testid="stExpander"] {
-        background: rgba(255,255,255,0.04) !important;
-        border: 1px solid rgba(255,100,100,0.2) !important;
-        border-radius: 10px !important; backdrop-filter: blur(4px) !important;
-    }
     label { color: #FFB3B3 !important; }
     [data-testid="stButton"] > button {
         background: linear-gradient(135deg, #6B1A1A 0%, #9B2525 100%) !important;
-        color: white !important; border: 1px solid rgba(255,100,100,0.4) !important;
+        color: white !important;
+        border: 1px solid rgba(255,100,100,0.4) !important;
         border-radius: 8px !important; font-weight: 600 !important;
-    }
-    [data-testid="stButton"] > button:hover {
-        box-shadow: 0 4px 20px rgba(255,80,80,0.35) !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -116,9 +108,21 @@ st.markdown("""
 try:
     st.image("banner.png")
 except Exception:
-    pass
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,rgba(10,25,60,0.96),
+    rgba(60,10,10,0.9));padding:1.8rem;border-radius:14px;
+    text-align:center;margin-bottom:1rem;
+    border:1px solid rgba(255,100,100,0.2);">
+        <h1 style="color:white;margin:0 0 0.3rem 0;">🎌 Anime Recommendation System</h1>
+        <p style="color:#FF9999;font-weight:700;margin:0 0 0.1rem 0;">
+            Applied Data Science, ML &amp; AI</p>
+        <p style="color:#BDD7EE;margin:0;font-size:0.88rem;">
+            E&amp;ICT Academy, IIT Guwahati &nbsp;·&nbsp;
+            Content-Based Filtering &nbsp;·&nbsp;
+            TF-IDF &nbsp;·&nbsp; Cosine Similarity</p>
+    </div>""", unsafe_allow_html=True)
 
-# ── Plot Style ─────────────────────────────────────────────────────────────────
+# ── Plot style ─────────────────────────────────────────────────────────────────
 plt.rcParams.update({
     'figure.facecolor': '#0a0d14',
     'axes.facecolor':   '#0d1020',
@@ -131,11 +135,7 @@ plt.rcParams.update({
     'grid.alpha':       0.5,
 })
 
-# ── Load & Build Feature Matrix ────────────────────────────────────────────────
-# Note: We store the feature MATRIX (small) not the cosine similarity matrix
-# (which would be 12294 x 12294 = 1.2GB and crash Streamlit Cloud)
-# Similarity is computed ON-DEMAND per request instead.
-
+# ── Load & Build ───────────────────────────────────────────────────────────────
 @st.cache_data
 def load_and_build():
     anm = pd.read_csv("anime.csv")
@@ -151,55 +151,49 @@ def load_and_build():
     df['episodes_log'] = np.log1p(df['episodes'])
     df = df.reset_index(drop=True)
 
-    # TF-IDF on genre
     df['genre_clean'] = df['genre'].str.replace(',', ' ').str.strip()
     tfidf     = TfidfVectorizer(stop_words='english')
     tfidf_mat = tfidf.fit_transform(df['genre_clean'])
 
-    # OneHot on type
     ohe      = OneHotEncoder(sparse_output=True, handle_unknown='ignore')
     type_enc = ohe.fit_transform(df[['type']])
 
-    # Normalize numerics
     scaler  = MinMaxScaler()
-    from scipy.sparse import csr_matrix
     num_mat = csr_matrix(scaler.fit_transform(
         df[['avg_rating', 'members_log', 'episodes_log']]
     ))
 
-    # Combined sparse feature matrix (small — only ~2-3MB)
-    combined = hstack([tfidf_mat * 3, type_enc * 2, num_mat * 1])
-
-    # Convert to float32 dense array to save memory
+    # Sparse combined matrix → dense float32 (~3MB, memory safe)
+    combined     = hstack([tfidf_mat * 3, type_enc * 2, num_mat * 1])
     combined_arr = combined.toarray().astype(np.float32)
-
-    indices = pd.Series(df.index, index=df['name']).drop_duplicates()
+    indices      = pd.Series(df.index, index=df['name']).drop_duplicates()
 
     return anm, df, combined_arr, indices
 
-with st.spinner("🎌 Summoning the Anime Recommender..."):
-    anm, anm_cb, combined_arr, indices = load_and_build()
+try:
+    with st.spinner("🎌 Summoning the Anime Recommender..."):
+        anm, anm_cb, combined_arr, indices = load_and_build()
+    st.markdown(f"""
+    <div class="box-green">
+    ✅ <b>Ready!</b> — {len(anm):,} anime ·
+    TF-IDF (genre ×3) + OneHot (type ×2) + MinMax (rating/members/episodes ×1) ·
+    Feature matrix: {combined_arr.shape[0]:,} × {combined_arr.shape[1]}
+    </div>""", unsafe_allow_html=True)
+except Exception as e:
+    st.error(f"❌ Error loading data: {e}")
+    st.stop()
 
-st.markdown(f"""
-<div class="box-green">
-✅ <b>Ready!</b> — {len(anm):,} anime indexed ·
-TF-IDF (genre ×3) + OneHot (type ×2) + MinMax (rating/members/episodes ×1) ·
-On-demand Cosine Similarity
-</div>""", unsafe_allow_html=True)
-
-# ── Recommend Function (on-demand similarity) ──────────────────────────────────
+# ── Recommend (on-demand — no 1.2GB matrix) ────────────────────────────────────
 def recommend(title, n=10):
     if title not in indices:
         return None
     idx       = indices[title]
-    query_vec = combined_arr[idx:idx+1]            # shape (1, n_features)
+    query_vec = combined_arr[idx:idx+1]
     sims      = cosine_similarity(query_vec, combined_arr).flatten()
-    top_idx   = np.argsort(sims)[::-1]
-    top_idx   = [i for i in top_idx if i != idx][:n]
+    top_idx   = [i for i in np.argsort(sims)[::-1] if i != idx][:n]
     sim_vals  = [round(float(sims[i]), 4) for i in top_idx]
-
-    result = anm_cb.iloc[top_idx][
-        ['name', 'genre', 'type', 'avg_rating', 'members', 'episodes']
+    result    = anm_cb.iloc[top_idx][
+        ['name','genre','type','avg_rating','members','episodes']
     ].copy()
     result['similarity'] = sim_vals
     result = result.reset_index(drop=True)
@@ -214,7 +208,8 @@ tab1, tab2 = st.tabs(["📋 Data Overview", "🎌 Recommender"])
 # TAB 1 — DATA OVERVIEW
 # ══════════════════════════════════════════════════════════════════════════════
 with tab1:
-    st.markdown('<div class="sec">📋 Dataset Summary</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec">📋 Dataset Summary</div>',
+                unsafe_allow_html=True)
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total Anime",   f"{anm.shape[0]:,}")
@@ -229,24 +224,21 @@ with tab1:
     st.markdown("**Descriptive Statistics**")
     st.dataframe(anm.describe().round(3))
 
-    st.markdown('<div class="sec">⚠️ Missing Values</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec">⚠️ Missing Values</div>',
+                unsafe_allow_html=True)
     miss = anm.isnull().sum().reset_index()
     miss.columns = ['Column', 'Missing Count']
     miss['Missing %'] = (miss['Missing Count'] / len(anm) * 100).round(2)
-    miss = miss[miss['Missing Count'] > 0]
-    st.dataframe(miss)
+    st.dataframe(miss[miss['Missing Count'] > 0])
 
-    st.markdown('<div class="sec">🤖 How the Recommender Works</div>',
+    st.markdown('<div class="sec">🤖 How It Works</div>',
                 unsafe_allow_html=True)
     st.markdown("""
     <div class="box-info">
-    <b>Feature Engineering:</b><br>
-    &nbsp;• <b>Genre</b> — TF-IDF vectorization (weight ×3)<br>
-    &nbsp;• <b>Type</b> — OneHot encoding: TV / Movie / OVA / ONA / Special / Music (weight ×2)<br>
-    &nbsp;• <b>Avg Rating</b> — MinMax normalized (weight ×1)<br>
-    &nbsp;• <b>Members</b> — log1p + MinMax (weight ×1)<br>
-    &nbsp;• <b>Episodes</b> — log1p + MinMax (weight ×1)<br><br>
-    <b>Similarity:</b> Cosine Similarity (computed on-demand per request)
+    <b>Features:</b> Genre (TF-IDF ×3) + Type (OneHot ×2) +
+    Avg Rating / Members / Episodes (MinMax ×1)<br>
+    <b>Similarity:</b> Cosine Similarity computed on-demand per request<br>
+    <b>Memory safe:</b> ~3MB feature matrix instead of 1.2GB similarity matrix
     </div>""", unsafe_allow_html=True)
 
 
@@ -254,7 +246,8 @@ with tab1:
 # TAB 2 — RECOMMENDER
 # ══════════════════════════════════════════════════════════════════════════════
 with tab2:
-    st.markdown('<div class="sec">🎌 Find Similar Anime</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sec">🎌 Find Similar Anime</div>',
+                unsafe_allow_html=True)
 
     c1, c2 = st.columns([3, 1])
     with c1:
@@ -263,7 +256,7 @@ with tab2:
         selected  = st.selectbox("🔍 Search & Select an Anime",
                                   options=all_anime, index=default)
     with c2:
-        n_recs = st.selectbox("📋 Recommendations",
+        n_recs = st.selectbox("📋 Count",
                                options=[5, 10, 15, 20], index=1)
 
     if selected:
@@ -272,18 +265,21 @@ with tab2:
 
         st.markdown(f"""
         <div class="anime-card">
-            <h3 style="color:#FF6B6B; margin:0 0 0.5rem 0;">🎬 {selected}</h3>
-            <p style="color:#FFB3B3; margin:0.2rem 0;">
-                <b style="color:#FF9999;">Genre:</b> {sel['genre'] or 'N/A'}
+            <h3 style="color:#FF6B6B;margin:0 0 0.5rem 0;">🎬 {selected}</h3>
+            <p style="color:#FFB3B3;margin:0.2rem 0;">
+                <b style="color:#FF9999;">Genre:</b>
+                {sel['genre'] or 'N/A'}
             </p>
-            <p style="color:#FFB3B3; margin:0.2rem 0;">
+            <p style="color:#FFB3B3;margin:0.2rem 0;">
                 <b style="color:#FF9999;">Type:</b> {sel['type']}
                 &nbsp;·&nbsp;
                 <b style="color:#FF9999;">Episodes:</b> {eps}
                 &nbsp;·&nbsp;
-                <b style="color:#FF9999;">Rating:</b> {sel['avg_rating']:.2f} ⭐
+                <b style="color:#FF9999;">Rating:</b>
+                {sel['avg_rating']:.2f} ⭐
                 &nbsp;·&nbsp;
-                <b style="color:#FF9999;">Members:</b> {int(sel['members']):,}
+                <b style="color:#FF9999;">Members:</b>
+                {int(sel['members']):,}
             </p>
         </div>""", unsafe_allow_html=True)
 
@@ -293,9 +289,8 @@ with tab2:
 
             if recs is not None:
                 st.markdown(
-                    f'<div class="sec">✅ Top {n_recs} Anime Similar to "{selected}"</div>',
-                    unsafe_allow_html=True)
-
+                    f'<div class="sec">✅ Top {n_recs} Similar to '
+                    f'"{selected}"</div>', unsafe_allow_html=True)
                 st.dataframe(recs)
 
                 c1, c2 = st.columns(2)
@@ -306,14 +301,17 @@ with tab2:
                             edgecolor='#0a0d14')
                     ax.set_title('Cosine Similarity Score',
                                  fontweight='bold', fontsize=10)
-                    ax.set_xlabel('Similarity'); ax.invert_yaxis()
+                    ax.set_xlabel('Similarity')
+                    ax.invert_yaxis()
                     ax.grid(True, alpha=0.2, axis='x')
-                    for patch, val in zip(ax.patches, recs['similarity']):
-                        ax.text(patch.get_width()+0.003,
-                                patch.get_y()+patch.get_height()/2,
-                                f'{val:.4f}', va='center',
+                    for p, v in zip(ax.patches, recs['similarity']):
+                        ax.text(p.get_width()+0.003,
+                                p.get_y()+p.get_height()/2,
+                                f'{v:.4f}', va='center',
                                 fontsize=8, color='#FFB3B3')
-                    plt.tight_layout(); st.pyplot(fig); plt.close()
+                    plt.tight_layout()
+                    st.pyplot(fig)
+                    plt.close()
 
                 with c2:
                     fig, ax = plt.subplots(figsize=(7, 5))
@@ -322,42 +320,48 @@ with tab2:
                             edgecolor='#0a0d14')
                     ax.set_title('Average Rating',
                                  fontweight='bold', fontsize=10)
-                    ax.set_xlabel('Rating'); ax.invert_yaxis()
+                    ax.set_xlabel('Rating')
+                    ax.invert_yaxis()
                     ax.grid(True, alpha=0.2, axis='x')
-                    for patch, val in zip(ax.patches, recs['avg_rating']):
-                        ax.text(patch.get_width()+0.05,
-                                patch.get_y()+patch.get_height()/2,
-                                f'{val:.2f}', va='center',
+                    for p, v in zip(ax.patches, recs['avg_rating']):
+                        ax.text(p.get_width()+0.05,
+                                p.get_y()+p.get_height()/2,
+                                f'{v:.2f}', va='center',
                                 fontsize=8, color='#BDD7EE')
-                    plt.tight_layout(); st.pyplot(fig); plt.close()
+                    plt.tight_layout()
+                    st.pyplot(fig)
+                    plt.close()
 
+                # Genre breakdown
                 st.markdown(
-                    '<div class="sec">🎭 Genre Distribution in Recommendations</div>',
+                    '<div class="sec">🎭 Genre Distribution</div>',
                     unsafe_allow_html=True)
-                rec_genres   = recs['genre'].dropna().str.split(',').explode().str.strip()
-                genre_counts = Counter(rec_genres)
-                gdf = pd.DataFrame(genre_counts.items(),
-                                   columns=['Genre','Count']
-                                   ).sort_values('Count', ascending=False)
+                rec_genres = (recs['genre'].dropna()
+                              .str.split(',').explode().str.strip())
+                gdf = (pd.DataFrame(Counter(rec_genres).items(),
+                                    columns=['Genre','Count'])
+                       .sort_values('Count', ascending=False))
                 fig, ax = plt.subplots(figsize=(12, 4))
                 ax.bar(gdf['Genre'], gdf['Count'],
                        color=sns.color_palette('YlOrRd', len(gdf))[::-1],
                        edgecolor='#0a0d14')
-                ax.set_title(f'Genres in Recommendations for "{selected}"',
-                             fontweight='bold', fontsize=10)
+                ax.set_title(
+                    f'Genres in Recommendations for "{selected}"',
+                    fontweight='bold', fontsize=10)
                 ax.set_xlabel('Genre'); ax.set_ylabel('Count')
                 ax.tick_params(axis='x', rotation=45)
                 ax.grid(True, alpha=0.2, axis='y')
-                plt.tight_layout(); st.pyplot(fig); plt.close()
+                plt.tight_layout()
+                st.pyplot(fig)
+                plt.close()
 
-                st.markdown(f"""
+                st.markdown("""
                 <div class="box-green">
-                ✅ <b>Done!</b> — On-demand cosine similarity ·
-                Feature matrix: {combined_arr.shape[0]:,} × {combined_arr.shape[1]} ·
-                Genre (TF-IDF ×3) + Type (OneHot ×2) + Rating/Members/Episodes (×1)
+                ✅ <b>Recommendations complete!</b>
                 </div>""", unsafe_allow_html=True)
 
-    st.markdown('<div class="sec">⚡ Quick Try — Popular Anime</div>',
+    # Quick Try
+    st.markdown('<div class="sec">⚡ Quick Try</div>',
                 unsafe_allow_html=True)
     st.caption("Click any button to instantly see recommendations")
 
@@ -367,10 +371,12 @@ with tab2:
     cols = st.columns(3)
     for i, name in enumerate(quick_list):
         with cols[i % 3]:
-            if st.button(f"🎌 {name}", use_container_width=True, key=f"q_{i}"):
+            if st.button(f"🎌 {name}", use_container_width=True,
+                         key=f"q_{i}"):
                 with st.spinner(f"Finding similar to {name}..."):
                     recs = recommend(name, n=10)
                 if recs is not None:
                     st.markdown(f"**Top 10 for {name}:**")
                     st.dataframe(
-                        recs[['name','genre','type','avg_rating','similarity']])
+                        recs[['name','genre','type',
+                              'avg_rating','similarity']])
