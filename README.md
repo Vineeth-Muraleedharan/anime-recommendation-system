@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://media1.tenor.com/m/RHG8bqMH1EAAAAAC/goku-dragon-ball.gif" width="300"/>
+<img src="https://i.imgur.com/yGQKZCL.gif" width="300"/>
 
 # 🎌 Anime Recommendation System
 
