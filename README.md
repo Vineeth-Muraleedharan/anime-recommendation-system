@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://share.google/POs6tupxMZIZ1OCa8" width="300"/>
+<img src="goku.jpg" width="300"/>
 
 # 🎌 Anime Recommendation System
 
