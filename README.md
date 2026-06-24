@@ -107,6 +107,6 @@ Senior Radiation Therapist | Healthcare AI Developer
 ---
 
 <div align="center">
-<i>"In the ninja world, those who break the rules are scum — but those who abandon their friends are worse than scum."</i>
-<br>— Kakashi Hatake
+<i>"In the ninja world, those who break the rules are scum, but those who abandon their friends are worse than scum."</i>
+<br>- Kakashi Hatake
 </div>
