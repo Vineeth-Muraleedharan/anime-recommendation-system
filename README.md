@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://i.imgur.com/yGQKZCL.gif" width="300"/>
+<img src="https://share.google/POs6tupxMZIZ1OCa8" width="300"/>
 
 # 🎌 Anime Recommendation System
 
@@ -13,7 +13,7 @@
 
 ## 📌 Project Overview
 
-This project builds a **Content-Based Anime Recommendation System** using the Anime Recommendations Database from Kaggle. Given an anime title, the system recommends the most similar anime based on genre, type, rating, popularity, and episode count, powered by TF-IDF vectorization and Cosine Similarity.
+This project builds a **Content-Based Anime Recommendation System** using the Anime Recommendations Database from Kaggle. Given an anime title, the system recommends the most similar anime based o[...]
 
 ---
 
