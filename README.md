@@ -34,7 +34,7 @@ This project builds a **Content-Based Anime Recommendation System** using the An
 - **Source:** [Kaggle - Anime Recommendations Database](https://www.kaggle.com/datasets/CooperUnion/anime-recommendations-database/data)
 - **Reference:** [Content & Collaborative Anime Recommendation](https://www.kaggle.com/code/benroshan/content-collaborative-anime-recommendation)
 - **anime.csv** - 12,294 anime titles with genre, type, rating, members, episodes
-- **rating.csv** - 7.8 million user ratings (not pushed — too large for deployment)
+- **rating.csv** - 7.8 million user ratings (not pushed - too large for deployment)
 
 ---
 
@@ -101,6 +101,7 @@ streamlit run app.py
 ## ✍️ Author
 
 **Vineeth Muraleedharan**
+
 Senior Radiation Therapist | Healthcare AI Developer
 
 
